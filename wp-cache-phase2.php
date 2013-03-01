@@ -1071,7 +1071,7 @@ function wp_cache_post_id_gc( $siteurl, $post_id, $all = 'all' ) {
 }
 
 function wp_cache_post_change( $post_id ) {
-	global $file_prefix, $cache_path, $blog_id, $super_cache_enabled, $blog_cache_dir, $blogcacheid, $wp_cache_refresh_single_only;
+	global $file_prefix, $cache_path, $blog_id, $super_cache_enabled, $blog_cache_dir, $blogcacheid, $wp_cache_refresh_single_only, $wp_cache_object_cache;
 	static $last_processed = -1;
 
 	if ( $post_id == $last_processed ) {
