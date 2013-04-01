@@ -585,6 +585,12 @@ function wp_cache_get_ob(&$buffer) {
 			if( $fr2 ) {
 				if ( isset( $GLOBALS[ 'wp_super_cache_debug' ] ) && $GLOBALS[ 'wp_super_cache_debug' ] ) wp_cache_debug( "Writing non-gzipped buffer to supercache file.", 5 );
 				wp_cache_add_to_buffer( $buffer, "super cache" );
+				
+				$close_html_tag_pos = strripos($buffer, '</html>');
+				if ($close_html_tag_pos) {
+					$buffer = substr($buffer, 0, $close_html_tag_pos) . substr($buffer, $close_html_tag_pos + 7) . "\n<html>";
+				}
+				
 				fputs($fr2, $buffer );
 			}
 			if( $gz ) {
