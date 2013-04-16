@@ -3,13 +3,13 @@
 Plugin Name: WP Super Cache
 Plugin URI: http://ocaoimh.ie/wp-super-cache/
 Description: Very fast caching plugin for WordPress.
-Version: 1.2
+Version: 1.3.1
 Author: Donncha O Caoimh
 Author URI: http://ocaoimh.ie/
 */
 
 /*  Copyright 2005-2006  Ricardo Galli Granada  (email : gallir@uib.es)
-    Copyright 2007-2012 Donncha O Caoimh (http://ocaoimh.ie/) and many others.
+    Copyright 2007-2013 Donncha Ó Caoimh (http://ocaoimh.ie/) and many others.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -321,7 +321,7 @@ function wp_cache_manager_error_checks() {
 			<ol><li> <?php _e( 'Set the plugin to legacy mode and enable mobile support.', 'wp-super-cache' ); ?></li>
 			<li> <?php _e( 'Scroll down the Advanced Settings page and click the <strong>Update Mod_Rewrite Rules</strong> button.', 'wp-super-cache' ); ?></li>
 			<li> <?php printf( __( 'Delete the plugin mod_rewrite rules in %s.htaccess enclosed by <code># BEGIN WPSuperCache</code> and <code># END WPSuperCache</code> and let the plugin regenerate them by reloading this page.', 'wp-super-cache' ), $home_path ); ?></li>
-			<li> <?php printf( __( 'Add the rules yourself. Edit %s.htaccess and find the block of code enclosed by the lines <code># BEGIN WPSuperCache</code> and <code># END WPSuperCache</code>. There are two sections that look very similar. Just below the line <code>%%{HTTP:Cookie} !^.*(comment_author_|wordpress_logged_in|wp-postpass_).*$</code> add these lines: (do it twice, once for each section)', 'wp-super-cache' ), $home_path ); ?></p>
+			<li> <?php printf( __( 'Add the rules yourself. Edit %s.htaccess and find the block of code enclosed by the lines <code># BEGIN WPSuperCache</code> and <code># END WPSuperCache</code>. There are two sections that look very similar. Just below the line <code>%%{HTTP:Cookie} !^.*(comment_author_|%s|wp-postpass_).*$</code> add these lines: (do it twice, once for each section)', 'wp-super-cache' ), $home_path, wpsc_get_logged_in_cookie() ); ?></p>
 			<div style='padding: 2px; margin: 2px; border: 1px solid #333; width:400px; overflow: scroll'><pre><?php echo "RewriteCond %{HTTP_user_agent} !^.*(" . addcslashes( implode( '|', $wp_cache_mobile_browsers ), ' ' ) . ").*\nRewriteCond %{HTTP_user_agent} !^(" . addcslashes( implode( '|', $wp_cache_mobile_prefixes ), ' ' ) . ").*"; ?></pre></div></li></ol></div><?php 
 	}
 
@@ -957,7 +957,7 @@ jQuery(document).ready(function(){
 					echo "</strike>";
 					echo "<p><strong>" . __( 'Warning! 304 browser caching is only supported when not using mod_rewrite caching.', 'wp-super-cache' ) . "</strong></p>";
 				} else {
-					?><em><?php _e( '304 support is disabled by default because in the past GoDaddy had problems with some of the headers used.', 'wp-super-cache' ); ?></em><br /><?php
+					?><em><?php _e( '304 support is disabled by default because some hosts have had problems with the headers used in the past.', 'wp-super-cache' ); ?></em><br /><?php
 				}
 				?><label><input type='checkbox' name='wp_cache_not_logged_in' <?php if( $wp_cache_not_logged_in ) echo "checked"; ?> value='1'> <?php _e( 'Don&#8217;t cache pages for <acronym title="Logged in users and those that comment">known users</acronym>.', 'wp-super-cache' ); echo " <em>(" . __( "Recommended", "wp-super-cache" ) . ")</em>"; ?></label><br />
 				<label><input type='checkbox' name='wp_cache_no_cache_for_get' <?php if( $wp_cache_no_cache_for_get ) echo "checked"; ?> value='1'> <?php _e( 'Don&#8217;t cache pages with GET parameters. (?x=y at the end of a url)', 'wp-super-cache' ); ?></label><br />
@@ -2724,6 +2724,17 @@ function wpsc_update_htaccess_form( $short_form = true ) {
 	}
 }
 
+/* 
+ * Return LOGGED_IN_COOKIE if it doesn't begin with wordpress_logged_in
+ * to avoid having people update their .htaccess file
+ */
+function wpsc_get_logged_in_cookie() {
+	$logged_in_cookie = 'wordpress_logged_in';
+	if ( defined( 'LOGGED_IN_COOKIE' ) && substr( constant( 'LOGGED_IN_COOKIE' ), 0, 19 ) != 'wordpress_logged_in' ) 
+		$logged_in_cookie = constant( 'LOGGED_IN_COOKIE' );
+	return $logged_in_cookie;
+}
+
 function wpsc_get_htaccess_info() {
 	global $wp_cache_mobile_enabled, $wp_cache_mobile_prefixes, $wp_cache_mobile_browsers, $wp_cache_disable_utf8;
 	if ( isset( $_SERVER[ "PHP_DOCUMENT_ROOT" ] ) ) {
@@ -2767,7 +2778,7 @@ function wpsc_get_htaccess_info() {
 	}
 	$condition_rules[] = "RewriteCond %{REQUEST_METHOD} !POST";
 	$condition_rules[] = "RewriteCond %{QUERY_STRING} !.*=.*";
-	$condition_rules[] = "RewriteCond %{HTTP:Cookie} !^.*(comment_author_|wordpress_logged_in|wp-postpass_).*$";
+	$condition_rules[] = "RewriteCond %{HTTP:Cookie} !^.*(comment_author_|" . wpsc_get_logged_in_cookie() . "|wp-postpass_).*$";
 	$condition_rules[] = "RewriteCond %{HTTP:X-Wap-Profile} !^[a-z0-9\\\"]+ [NC]";
 	$condition_rules[] = "RewriteCond %{HTTP:Profile} !^[a-z0-9\\\"]+ [NC]";
 	if ( $wp_cache_mobile_enabled ) {
@@ -3121,9 +3132,29 @@ function supercache_admin_bar_render() {
 				'id' => 'delete-cache',
 				'title' => __( 'Delete Cache', 'wp-super-cache' ),
 				'meta' => array( 'title' => __( 'Delete cache of the current page', 'wp-super-cache' ) ),
-				'href' => wp_nonce_url( admin_url( 'index.php?action=delcachepage&path=' . urlencode( $_SERVER[ 'REQUEST_URI' ] ) ), 'delete-cache' )
+				'href' => wp_nonce_url( admin_url( 'index.php?action=delcachepage&path=' . urlencode( preg_replace( '/[ <>\'\"\r\n\t\(\)]/', '', $_SERVER[ 'REQUEST_URI' ] ) ) ), 'delete-cache' )
 				) );
 }
 add_action( 'wp_before_admin_bar_render', 'supercache_admin_bar_render' );
 
+add_filter( 'preprocess_comment','no_mfunc_in_comments' );
+add_filter( 'comment_text','no_mfunc_in_comments' );
+add_filter( 'comment_excerpt','no_mfunc_in_comments' );
+add_filter( 'comment_text_rss','no_mfunc_in_comments' );
+
+function no_mfunc_in_comments( $comment_data ) {
+	if ( is_array( $comment_data ) )
+		$text = $comment_data[ 'comment_content' ];
+	else
+		$text = $comment_data;
+
+	if ( preg_match( '/<!--\s*mclude|<!--\s*mfunc|<!--\s*dynamic-cached-content/i', $text )) { 
+		$text = preg_replace( '#(<!--\s*(mclude|mfunc|dynamic-cached-content).*<!-+\s*/\s*(mfunc|mclude|dynamic-cached-content)\s*-+>)#ism','<!-- unsafe comment zapped -->', $text );
+		if ( is_array( $comment_data ) )
+			$comment_data[ 'comment_content' ] = $text;
+		else
+			$comment_data = $text;
+	}
+	return $comment_data;
+}
 ?>
